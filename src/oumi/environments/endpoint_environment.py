@@ -17,20 +17,21 @@
 from __future__ import annotations
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import jsonschema
 import requests
 from pydantic import JsonValue
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter, Retry
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import ToolError, ToolLookupError, ToolParams
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
-from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_environment import BaseEnvironment, PartialStepError
 from oumi.environments.utils import parse_env_kwargs
 
 _DEFAULT_TIMEOUT_SECONDS = 30.0
@@ -82,6 +83,16 @@ class EndpointEnvironmentKwargs(BaseParams):
     endpoint that does not deduplicate.
     """
 
+    max_concurrency: int = 1
+    """How many calls of one :meth:`EndpointEnvironment.step` batch run at once.
+
+    Defaults to 1, which sends them one at a time and stops at the first
+    failure. Raise it when the endpoint serves calls independently and the
+    batch should not wait for their sum. Calls then reach the endpoint in no
+    fixed order, and every call in the batch is sent even when an earlier one
+    fails.
+    """
+
     def __finalize_and_validate__(self) -> None:
         """Validate the endpoint configuration."""
         if not self.endpoint_url:
@@ -90,6 +101,8 @@ class EndpointEnvironmentKwargs(BaseParams):
             raise ValueError("timeout_seconds must be positive.")
         if self.max_retries < 0:
             raise ValueError("max_retries cannot be negative.")
+        if self.max_concurrency <= 0:
+            raise ValueError("max_concurrency must be positive.")
 
 
 @dataclass(frozen=True)
@@ -165,6 +178,7 @@ class RequestsJsonClient:
         url: str,
         timeout_seconds: float,
         max_retries: int = _DEFAULT_MAX_RETRIES,
+        max_concurrency: int = 1,
     ) -> None:
         """Send every call to ``url``, waiting at most ``timeout_seconds``."""
         self._url = url
@@ -181,7 +195,12 @@ class RequestsJsonClient:
                 # Hand back the exhausted response so the status reaches the
                 # protocol, rather than urllib3 raising its own pool error.
                 raise_on_status=False,
-            )
+            ),
+            # Keep at least requests' default pool so the default config still
+            # reuses connections across threads; grow it so concurrent calls of
+            # one batch can each hold a connection instead of opening one and
+            # having urllib3 discard it once the pool is full.
+            pool_maxsize=max(max_concurrency, DEFAULT_POOLSIZE),
         )
         self._session.mount("https://", adapter)
         self._session.mount("http://", adapter)
@@ -265,10 +284,16 @@ class EndpointEnvironment(BaseEnvironment):
 
     tool_params_cls = ToolParams
 
-    def __init__(self, params: EnvironmentParams, protocol: EndpointProtocol) -> None:
+    def __init__(
+        self,
+        params: EnvironmentParams,
+        protocol: EndpointProtocol,
+        max_concurrency: int = 1,
+    ) -> None:
         """Bind the env to the protocol that reaches its endpoint."""
         self._params = params
         self._protocol = protocol
+        self._max_concurrency = max_concurrency
         self._tools_by_id: dict[str, ToolParams] = {
             tool.id: tool for tool in params.tools
         }
@@ -280,9 +305,12 @@ class EndpointEnvironment(BaseEnvironment):
             EndpointEnvironmentKwargs, params, env_label="EndpointEnvironment"
         )
         client = RequestsJsonClient(
-            kwargs.endpoint_url, kwargs.timeout_seconds, kwargs.max_retries
+            kwargs.endpoint_url,
+            kwargs.timeout_seconds,
+            kwargs.max_retries,
+            kwargs.max_concurrency,
         )
-        return cls(params, JsonHttpProtocol(client))
+        return cls(params, JsonHttpProtocol(client), kwargs.max_concurrency)
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order.
@@ -290,14 +318,55 @@ class EndpointEnvironment(BaseEnvironment):
         Identifies the calls itself, treating the batch as one conversation.
         Callers holding stable ids for a conversation and its calls should use
         :meth:`call` so retries stay deduplicable end to end.
+
+        With ``max_concurrency=1`` the batch stops at the first failure and
+        that call's error is raised unwrapped. Above 1 every call has already
+        been sent by the time one of them fails, so the failure is raised as a
+        :class:`PartialStepError` carrying the calls that succeeded.
+
+        Raises:
+            PartialStepError: If a call fails while others already succeeded.
+                It carries those results so the caller only re-sends the calls
+                that never reached the endpoint.
         """
+        if not calls:
+            return []
+
         session_id = uuid.uuid4().hex
-        return [
-            self.call(
-                tool_id, arguments, call_id=uuid.uuid4().hex, session_id=session_id
+        call_ids = [uuid.uuid4().hex for _ in calls]
+
+        def run_one(index: int) -> ToolResult:
+            tool_id, arguments = calls[index]
+            return self.call(
+                tool_id, arguments, call_id=call_ids[index], session_id=session_id
             )
-            for tool_id, arguments in calls
-        ]
+
+        workers = min(self._max_concurrency, len(calls))
+        if workers == 1:
+            # Sequential: nothing has been sent past the failure, so the caller
+            # can see the original error and the default path is unchanged.
+            return [run_one(index) for index in range(len(calls))]
+
+        # Submit the whole batch up front: unlike the sequential path, every
+        # call has reached the endpoint by the time the first failure surfaces.
+        # Wait for the rest anyway, so the caller can keep the results it
+        # already paid for instead of repeating those side effects.
+        done: dict[int, ToolResult] = {}
+        failure: BaseException | None = None
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(run_one, index) for index in range(len(calls))]
+            for index, future in enumerate(futures):
+                error = future.exception()
+                if error is None:
+                    done[index] = future.result()
+                elif failure is None:
+                    # Futures are enumerated in submission order, so this keeps
+                    # the earliest failing call rather than the first thread to
+                    # finish, which would vary between runs.
+                    failure = error
+        if failure is not None:
+            raise PartialStepError(done, failure) from failure
+        return [done[index] for index in range(len(calls))]
 
     def call(
         self,

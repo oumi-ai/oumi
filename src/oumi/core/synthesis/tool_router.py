@@ -31,7 +31,7 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.types.tool_call import ToolDefinition, ToolResult
-from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_environment import BaseEnvironment, PartialStepError
 
 
 @dataclass
@@ -211,7 +211,14 @@ class ToolRouter:
         return parsed
 
     def route_batch(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
-        """Dispatch a batch of (tool_id, args) pairs; preserves call order."""
+        """Dispatch a batch of (tool_id, args) pairs; preserves call order.
+
+        Raises:
+            PartialStepError: As raised by an env whose batch failed after some
+                of its calls succeeded. Its ``results`` are keyed by the index
+                in ``calls``, matching how the caller passed them, and include
+                the calls of any group that completed before the failing one.
+        """
         if not calls:
             return []
 
@@ -227,7 +234,25 @@ class ToolRouter:
         results: list[ToolResult | None] = [None] * len(calls)
         for group in groups.values():
             env = self.tool_to_env[group[0][1]]
-            outputs = env.step([(tid, args) for _, tid, args in group])
+            try:
+                outputs = env.step([(tid, args) for _, tid, args in group])
+            except PartialStepError as error:
+                # An env's batch is its own group, so translate its local
+                # indices back to the indices the caller used, and keep the
+                # results of groups that already finished: re-sending those
+                # would repeat a side effect the tool already performed.
+                done = {
+                    group[local_index][0]: result
+                    for local_index, result in error.results.items()
+                }
+                done.update(
+                    {
+                        idx: result
+                        for idx, result in enumerate(results)
+                        if result is not None
+                    }
+                )
+                raise PartialStepError(done, error.cause) from error
             for (idx, _, _), out in zip(group, outputs):
                 results[idx] = out
 

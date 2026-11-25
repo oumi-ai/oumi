@@ -31,7 +31,7 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.types.tool_call import JSONSchema, ToolResult
-from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_environment import BaseEnvironment, PartialStepError
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
@@ -84,6 +84,7 @@ __all__ = [
     "JsonHttpProtocol",
     "LookupEnvironment",
     "LookupEnvironmentKwargs",
+    "PartialStepError",
     "RemoteToolCall",
     "RequestsJsonClient",
     "SimulatedEnvironment",
