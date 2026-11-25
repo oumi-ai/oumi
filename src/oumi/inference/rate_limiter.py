@@ -31,6 +31,11 @@ class RequestRecord:
     output_tokens: int
     """Number of output (completion) tokens consumed by this request."""
 
+    is_request: bool = True
+    """Whether this record counts as a request toward the RPM limit. A request is
+    counted when it is sent; the tokens its response reports are recorded later
+    in a record that doesn't count again."""
+
 
 @dataclass
 class UsageStats:
@@ -64,12 +69,15 @@ class UsageTracker:
         self._history: deque[RequestRecord] = deque()
         self._lock = asyncio.Lock()
 
-    async def record(self, input_tokens: int, output_tokens: int) -> None:
+    async def record(
+        self, input_tokens: int, output_tokens: int, *, is_request: bool = True
+    ) -> None:
         """Record usage for a completed request.
 
         Args:
             input_tokens: Number of input (prompt) tokens used.
             output_tokens: Number of output (completion) tokens used.
+            is_request: Whether the record counts as a request toward the RPM limit.
         """
         async with self._lock:
             now = time.time()
@@ -79,6 +87,7 @@ class UsageTracker:
                     timestamp=now,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    is_request=is_request,
                 )
             )
 
@@ -94,7 +103,7 @@ class UsageTracker:
             now = time.time()
             self._purge_expired(now)
             return UsageStats(
-                requests=len(self._history),
+                requests=sum(r.is_request for r in self._history),
                 input_tokens=sum(r.input_tokens for r in self._history),
                 output_tokens=sum(r.output_tokens for r in self._history),
             )
@@ -168,7 +177,11 @@ class RateLimiter:
         below their thresholds, then sleep for that duration. Waiters are
         serialized to prevent synchronized wakeups when many coroutines
         spawn on the limiter simultaneously. No action when no limits are
-        configured or when bandwidth is available.
+        configured.
+
+        Once all limits have bandwidth, counts the caller's request right away,
+        before it is sent, so requests still in flight, failed attempts and
+        responses without usage all count toward the RPM limit.
         """
         if not self.has_limits():
             return
@@ -183,9 +196,15 @@ class RateLimiter:
                     wait_seconds = self._compute_wait_seconds(
                         self._tracker._history, now
                     )
-
-                if wait_seconds <= 0:  # No need to wait, all limits have bandwidth
-                    return
+                    if wait_seconds <= 0:  # All limits have bandwidth
+                        # Count the request now, under the same lock, so the
+                        # next waiter sees it.
+                        self._tracker._history.append(
+                            RequestRecord(
+                                timestamp=now, input_tokens=0, output_tokens=0
+                            )
+                        )
+                        return
                 await asyncio.sleep(wait_seconds)
 
     async def record_usage(self, input_tokens: int, output_tokens: int) -> None:
@@ -201,9 +220,11 @@ class RateLimiter:
             output_tokens: Completion tokens generated (completion_tokens from the
                 from the normalized usage dict).
         """
+        # wait_if_needed() already counted the request when it was sent.
         await self._tracker.record(
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            is_request=False,
         )
 
     def _wait_seconds_for_rpm(
@@ -212,12 +233,13 @@ class RateLimiter:
         """Return the seconds to wait due to the RPM limit, or 0.0 if None."""
         if self._requests_per_minute is None:
             return 0.0
-        if len(history) >= self._requests_per_minute and history:
+        requests = [r for r in history if r.is_request]
+        if len(requests) >= self._requests_per_minute and requests:
             # Wait until the pivot entry expires: the entry that must leave the
-            # window for len(history) to drop below requests_per_minute
+            # window for len(requests) to drop below requests_per_minute
             # If len > RPM there are N requests over the limit, so N+1 entries
-            # expire: the last of those is history[len(history) - RPM]
-            pivot = history[len(history) - self._requests_per_minute]
+            # expire: the last of those is requests[len(requests) - RPM]
+            pivot = requests[len(requests) - self._requests_per_minute]
             return window - (now - pivot.timestamp)
         return 0.0
 

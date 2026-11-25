@@ -74,7 +74,9 @@ class RemoteParams(BaseParams):
 
     When set, the engine enforces this limit the sliding window algo in RateLimiter. If
     the limit is reached, workers sleep until the oldest request in the 60 second window
-    expires. In line with the RPM limits per OpenAI and Anthropic docs.
+    expires. In line with the RPM limits per OpenAI and Anthropic docs. A request
+    counts when it is sent, so requests still in flight, failed attempts and retries
+    count too.
 
     - OpenAI: https://platform.openai.com/settings/organization/limits
     - OpenAI: https://developers.openai.com/api/docs/guides/rate-limits
