@@ -1020,10 +1020,19 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         )
         async with self._session() as session:
             tasks = [
-                make_task(conversation, semaphore, session) for conversation in input
+                asyncio.ensure_future(make_task(conversation, semaphore, session))
+                for conversation in input
             ]
             disable_tqdm = len(tasks) < 2
-            return await tqdm.gather(*tasks, disable=disable_tqdm)
+            try:
+                return await tqdm.gather(*tasks, disable=disable_tqdm)
+            finally:
+                # tqdm.gather runs each request in its own task, which outlives a
+                # cancelled caller or a request that raised. Cancel the requests
+                # still running and wait for them, so none keeps going on its own.
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _infer(
         self,
