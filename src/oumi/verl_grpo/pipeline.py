@@ -15,7 +15,7 @@
 """The steps around a verl 0.9.1 GRPO run: preprocess before it, postprocess after.
 
 Usage:
-    python -m oumi.verl_grpo.pipeline preprocess -c train.yaml
+    python -m oumi.verl_grpo.pipeline preprocess -c train.yaml [--init-model DIR]
     (then run the verl command that preprocess prints)
     python -m oumi.verl_grpo.pipeline postprocess -c train.yaml --verl-python PATH
 """
@@ -25,6 +25,7 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
+from huggingface_hub import snapshot_download
 from omegaconf import OmegaConf
 
 import oumi_verl_ext
@@ -33,14 +34,24 @@ from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.verl_grpo.config import merge_verl_config
 from oumi.verl_grpo.data import write_verl_parquet
 from oumi.verl_grpo.export import export_verl_checkpoint, latest_checkpoint_actor_dir
+from oumi.verl_grpo.layout import INDEX_FILENAME, fill_from_base
 
 
-def preprocess(config: TrainingConfig) -> Path:
+def preprocess(config: TrainingConfig, *, init_model: Path | None = None) -> Path:
     """Writes the parquet files, verl config and extension that verl's run needs.
+
+    Args:
+        config: The run's training config.
+        init_model: A full fine-tuned model to train from in place of
+            `model.model_name`. A text-only one is first filled out from that base.
 
     Returns:
         The verl config's path, `<training.output_dir>/verl_config.yaml`.
     """
+    model_path = config.model.model_name
+    if init_model is not None:
+        fill_from_base(init_model, _local_model_dir(config))
+        model_path = str(init_model.resolve())
     output_dir = Path(config.training.output_dir).resolve()
     tokenizer = build_tokenizer(config.model)
     parquet = {}
@@ -57,7 +68,7 @@ def preprocess(config: TrainingConfig) -> Path:
                 "train_files": [str(parquet[DatasetSplit.TRAIN])],
                 "val_files": [str(parquet[DatasetSplit.VALIDATION])],
             },
-            "actor_rollout_ref": {"model": {"path": config.model.model_name}},
+            "actor_rollout_ref": {"model": {"path": model_path}},
             "trainer": {"default_local_dir": str(output_dir / "checkpoints")},
         },
     )
@@ -93,6 +104,21 @@ def postprocess(config: TrainingConfig, *, verl_python: str) -> Path:
         base_model=model.path,
         verl_python=verl_python,
         exclude_modules=model.exclude_modules,
+        text_only=config.model.text_only,
+    )
+
+
+def _local_model_dir(config: TrainingConfig) -> Path:
+    """The base model's files: its directory, or its pinned Hub snapshot."""
+    name = config.model.model_name
+    if Path(name).is_dir():
+        return Path(name)
+    return Path(
+        snapshot_download(
+            name,
+            revision=config.model.model_revision,
+            allow_patterns=["*.json", "*.jinja", "model*.safetensors", INDEX_FILENAME],
+        )
     )
 
 
@@ -100,7 +126,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     """Runs one step from the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     steps = parser.add_subparsers(dest="step", required=True)
-    steps.add_parser("preprocess").add_argument("-c", "--config", required=True)
+    pre = steps.add_parser("preprocess")
+    pre.add_argument("-c", "--config", required=True)
+    pre.add_argument("--init-model", type=Path)
     post = steps.add_parser("postprocess")
     post.add_argument("-c", "--config", required=True)
     post.add_argument("--verl-python", required=True)
@@ -108,7 +136,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     config = TrainingConfig.from_yaml(args.config)
     if args.step == "preprocess":
-        path = preprocess(config)
+        path = preprocess(config, init_model=args.init_model)
         print(
             f"PYTHONPATH={path.parent / 'ext'} <verl python> -m verl.trainer.main_ppo "
             f"--config-dir {path.parent} --config-name {path.stem}"

@@ -23,6 +23,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from oumi.verl_grpo.layout import to_text_only
 from oumi.verl_grpo.patches.gemma4_fill import fill_gemma4_kv_tensors
 
 
@@ -39,6 +40,7 @@ def export_verl_checkpoint(
     base_model: str,
     verl_python: str,
     exclude_modules: str | None = None,
+    text_only: bool = False,
 ) -> Path:
     """Exports the checkpoint in `actor_dir` to `output_dir`.
 
@@ -49,6 +51,8 @@ def export_verl_checkpoint(
             the source of the weights a Gemma 4 export lacks.
         verl_python: Python interpreter of the env that has verl installed.
         exclude_modules: Regex for modules a LoRA adapter excludes.
+        text_only: Whether a full fine-tune keeps only its language model, as a
+            `model.text_only` run of another trainer saves it.
 
     Returns:
         `output_dir`.
@@ -91,6 +95,8 @@ def export_verl_checkpoint(
             merged = adapter
         else:
             fill_gemma4_kv_tensors(merged, base_model)
+            if text_only:
+                to_text_only(merged)
         for path in merged.iterdir():
             shutil.move(path, output_dir / path.name)
     return output_dir
