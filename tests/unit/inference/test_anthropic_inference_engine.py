@@ -314,22 +314,90 @@ def test_convert_api_output_to_conversation(anthropic_engine):
     assert result.conversation_id == "test_id"
 
 
-def test_convert_api_output_empty_content(anthropic_engine):
+@pytest.mark.parametrize(
+    "content",
+    [
+        [],
+        [{"type": "text", "text": ""}],
+        [{"type": "thinking", "thinking": "Nothing to add.", "signature": "sig"}],
+    ],
+    ids=["no blocks", "empty text block", "thinking only"],
+)
+def test_convert_api_output_with_no_text_or_tool_calls_is_an_empty_reply(
+    anthropic_engine, content
+):
+    # Claude can end its turn without saying anything, e.g. after a tool result.
+    # Match the base engine and record an empty reply instead of an invalid
+    # Message, which the retries can't fix because the same request gets the
+    # same reply.
     original_conversation = Conversation(
         messages=[Message(content="User message", role=Role.USER)],
     )
     api_response = {
-        "content": [],
+        "content": content,
         "stop_reason": "end_turn",
         "type": "message",
-        "model": "claude-opus-4-6",
-        "usage": {"input_tokens": 100, "output_tokens": 0},
+        "model": "claude-sonnet-5-5",
     }
 
-    with pytest.raises(RuntimeError, match="Anthropic API returned empty content"):
-        anthropic_engine._convert_api_output_to_conversation(
-            api_response, original_conversation
-        )
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert result.messages[-1].role == Role.ASSISTANT
+    assert result.messages[-1].content == ""
+    assert result.messages[-1].tool_calls is None
+
+
+def test_infer_returns_an_empty_reply_without_retrying():
+    api_url = "http://localhost/v1/messages"
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-sonnet-5-5"),
+        remote_params=RemoteParams(
+            api_key="test_api_key", api_url=api_url, max_retries=3
+        ),
+    )
+    conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+    )
+    empty_reply = {
+        "content": [{"type": "text", "text": ""}],
+        "stop_reason": "end_turn",
+        "type": "message",
+        "model": "claude-sonnet-5-5",
+        "usage": {"input_tokens": 100, "output_tokens": 1},
+    }
+
+    with aioresponses() as mocked_api, patch("asyncio.sleep") as mock_sleep:
+        mocked_api.post(api_url, status=200, payload=empty_reply, repeat=True)
+        [result] = engine.infer([conversation])
+
+    assert result.messages[-1].content == ""
+    assert sum(len(calls) for calls in mocked_api.requests.values()) == 1
+    mock_sleep.assert_not_called()
+
+
+def test_convert_api_output_tool_call_with_empty_text_keeps_content_none(
+    anthropic_engine,
+):
+    original_conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+    )
+    api_response = {
+        "content": [
+            {"type": "text", "text": ""},
+            {"type": "tool_use", "id": "t1", "name": "lookup", "input": {"q": "x"}},
+        ],
+        "stop_reason": "tool_use",
+    }
+
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert result.messages[-1].content is None
+    assert result.messages[-1].tool_calls is not None
+    assert result.messages[-1].tool_calls[0].function.name == "lookup"
 
 
 @pytest.mark.parametrize(
