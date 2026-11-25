@@ -795,6 +795,100 @@ def test_slurm_cluster_run_job_fails(mock_time, mock_datetime, mock_slurm_client
     mock_time.sleep.assert_has_calls([call(5), call(5), call(5)])
 
 
+def _running_status(job_id: str, done: bool = False) -> JobStatus:
+    return JobStatus(
+        id=job_id,
+        name="myjob",
+        status="RUNNING",
+        metadata="",
+        cluster="debug@host",
+        done=done,
+        state=JobState.RUNNING,
+    )
+
+
+def test_slurm_cluster_allocate(mock_datetime, mock_slurm_client):
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.get_job.return_value = _running_status("1234")
+    job = _get_default_job("slurm")
+    job.run = "#SBATCH --time=01:00:00\n./hello_world.sh"
+
+    assert cluster.allocate(job) == _running_status("1234")
+
+    # The job's setup and #SBATCH directives are kept; its run commands are
+    # replaced by the wait for `start_job`.
+    allocation_script = (
+        "#!/bin/bash\n#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n"
+        "#SBATCH --time=01:00:00\n\n"
+        "export var1=val1\n\n"
+        "pip install -r requirements.txt\n"
+        'job_dir="$HOME/oumi_launcher/allocation_$SLURM_JOB_ID"\n'
+        'while [ ! -f "$job_dir/oumi_job.sh" ]; do sleep 5; done\n'
+        'cd "$job_dir" && exec bash oumi_job.sh\n'
+    )
+    mock_slurm_client.put.assert_called_once_with(
+        allocation_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
+    )
+    mock_slurm_client.submit_job.assert_called_once_with(
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
+        2,
+        name="myjob",
+        gres="gpu:A100-80GB:1",
+        cpus_per_task="4",
+        mem="64G",
+    )
+
+
+def test_slurm_cluster_allocate_invalid_job(mock_datetime, mock_slurm_client):
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
+    job = _get_default_job("slurm")
+    job.user = None
+    with pytest.raises(ValueError, match="User must be provided"):
+        cluster.allocate(job)
+    mock_slurm_client.submit_job.assert_not_called()
+
+
+def test_slurm_cluster_start_job(mock_datetime, mock_slurm_client):
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
+    mock_slurm_client.get_job.return_value = _running_status("1234")
+    mock_slurm_client.run_commands.return_value = Mock(exit_code=0)
+
+    assert cluster.start_job("1234", _get_default_job("slurm")) == _running_status(
+        "1234"
+    )
+
+    job_dir = "~/oumi_launcher/allocation_1234"
+    mock_slurm_client.put_recursive.assert_has_calls(
+        [
+            call("./", job_dir),
+            call("~/local/path.bar", "~/home/remote/path.bar"),
+            call("~/local/path2.txt", "~/home/remote/path2.txt"),
+        ]
+    )
+    job_script = (
+        "#!/bin/bash\n#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n\n"
+        "export var1=val1\n\n"
+        "pip install -r requirements.txt\n./hello_world.sh\n"
+    )
+    mock_slurm_client.put.assert_called_once_with(
+        job_script, f"{job_dir}/oumi_job.sh.tmp"
+    )
+    mock_slurm_client.run_commands.assert_called_once_with(
+        [f"mv {job_dir}/oumi_job.sh.tmp {job_dir}/oumi_job.sh"]
+    )
+    mock_slurm_client.submit_job.assert_not_called()
+
+
+def test_slurm_cluster_start_job_allocation_ended(mock_datetime, mock_slurm_client):
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
+    mock_slurm_client.get_job.return_value = _running_status("1234", done=True)
+    with pytest.raises(RuntimeError, match="Allocation 1234 is not active."):
+        cluster.start_job("1234", _get_default_job("slurm"))
+    mock_slurm_client.put.assert_not_called()
+
+
 def test_slurm_cluster_down(mock_datetime, mock_slurm_client):
     cluster = SlurmCluster("debug-scaling@host", mock_slurm_client)
     cluster.down()

@@ -16,7 +16,7 @@ import os
 import re
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
@@ -28,6 +28,21 @@ from oumi.launcher.clients.slurm_client import SlurmClient, SlurmLogStream
 from oumi.utils.logging import logger
 
 _OUMI_SLURM_CONNECTIONS = "OUMI_SLURM_CONNECTIONS"
+
+# Directory, relative to the home directory, that `SlurmCluster.start_job` copies
+# a job into for the allocation with the given job ID.
+_ALLOCATION_DIR = "oumi_launcher/allocation_{job_id}"
+
+# The run commands of an allocation: wait until `SlurmCluster.start_job` has
+# written a job script, then run it in place of this script, so the allocation's
+# Slurm state and log become those of the job.
+_ALLOCATION_RUN = "\n".join(
+    [
+        f'job_dir="$HOME/{_ALLOCATION_DIR.format(job_id="$SLURM_JOB_ID")}"',
+        'while [ ! -f "$job_dir/oumi_job.sh" ]; do sleep 5; done',
+        'cd "$job_dir" && exec bash oumi_job.sh',
+    ]
+)
 
 
 def _format_date(date: datetime) -> str:
@@ -328,14 +343,7 @@ class SlurmCluster(BaseCluster):
         job_name = job.name or uuid.uuid1().hex
         submission_time = _format_date(datetime.now())
         remote_working_dir = Path(f"~/oumi_launcher/{submission_time}")
-        # Copy the working directory to ~/oumi_launcher/...
-        if job.working_dir:
-            self._client.put_recursive(job.working_dir, str(remote_working_dir))
-        else:
-            self._client.run_commands([f"mkdir -p {remote_working_dir}"])
-        # Copy all file mounts.
-        for remote_path, local_path in job.file_mounts.items():
-            self._client.put_recursive(local_path, remote_path)
+        self._copy_job_files(job, remote_working_dir)
         # Create the job script by merging envs, setup, and run commands.
         job_script = _create_job_script(job)
         script_path = remote_working_dir / "oumi_job.sh"
@@ -363,6 +371,70 @@ class SlurmCluster(BaseCluster):
         if job_status is None:
             raise RuntimeError(f"Job {job_id} not found after submission.")
         return job_status
+
+    def allocate(self, job: JobConfig) -> JobStatus:
+        """Allocates nodes on this cluster that wait for a job to be started.
+
+        The allocation is submitted like `run_job` submits the job, with the same
+        resources, envs, setup commands and `#SBATCH` directives, but in place of
+        the job's other run commands it waits for `start_job`. Its status, log
+        and cancellation are those of a regular job: use `get_job`,
+        `get_logs_stream` and `cancel_job` with the returned ID. It stays
+        RUNNING while it waits, until the job's `#SBATCH --time` limit or the
+        cluster's default limit.
+
+        Args:
+            job: The job whose resources, setup and `#SBATCH` directives are used.
+
+        Returns:
+            The status of the allocation. Its ID is passed to `start_job`.
+        """
+        run_lines = job.run.strip().split("\n")
+        sbatch_lines = run_lines[: _last_sbatch_line(run_lines) + 1]
+        return self.run_job(
+            replace(job, run="\n".join(sbatch_lines + [_ALLOCATION_RUN]))
+        )
+
+    def start_job(self, allocation_id: str, job: JobConfig) -> JobStatus:
+        """Starts a job in an allocation made by `allocate`.
+
+        The job's working directory and file mounts are copied, and its envs,
+        setup and run commands are run in the allocation as `run_job` would run
+        them in a new job. `#SBATCH` directives in the job have no effect: the
+        allocation's resources apply. Only one job can be started in an
+        allocation; it ends when the job ends, with the job's outcome as its
+        state.
+
+        Args:
+            allocation_id: The ID of the status returned by `allocate`.
+            job: The job to run.
+
+        Returns:
+            The status of the allocation, which is the status of the job.
+        """
+        _validate_job_config(job)
+        allocation = self.get_job(allocation_id)
+        if allocation is None or allocation.done:
+            raise RuntimeError(f"Allocation {allocation_id} is not active.")
+        job_dir = Path(f"~/{_ALLOCATION_DIR.format(job_id=allocation_id)}")
+        self._copy_job_files(job, job_dir)
+        # Write the script under another name and rename it, so the allocation
+        # never runs a partly written script.
+        script_path = job_dir / "oumi_job.sh"
+        self._client.put(_create_job_script(job), f"{script_path}.tmp")
+        result = self._client.run_commands([f"mv {script_path}.tmp {script_path}"])
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to start job. stderr: {result.stderr}")
+        return allocation
+
+    def _copy_job_files(self, job: JobConfig, remote_working_dir: Path) -> None:
+        """Copies the job's working directory and file mounts to the cluster."""
+        if job.working_dir:
+            self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        else:
+            self._client.run_commands([f"mkdir -p {remote_working_dir}"])
+        for remote_path, local_path in job.file_mounts.items():
+            self._client.put_recursive(local_path, remote_path)
 
     def stop(self) -> None:
         """This is a no-op for Slurm clusters."""
