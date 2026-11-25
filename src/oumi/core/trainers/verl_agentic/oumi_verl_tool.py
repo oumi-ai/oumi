@@ -29,7 +29,11 @@ from verl.tools.schemas import (  # pyright: ignore[reportMissingImports]
 
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.synthesis.tool_router import ToolRouter
-from oumi.core.trainers.verl_agentic.env_provider import get_or_build_router
+from oumi.core.trainers.verl_agentic.env_provider import (
+    get_or_build_router,
+    get_or_build_worker,
+)
+from oumi.core.trainers.verl_agentic.router_worker import RouterWorker
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_verl_v0_7_or_later
 
@@ -61,6 +65,9 @@ class OumiVerlTool(BaseTool):
         super().__init__(config, tool_schema)
         self._tool_id = tool_schema.function.name
         self._env_config_path = config["oumi_env_config"]
+        self._execution_mode = config.get("execution_mode", "sync")
+        if self._execution_mode not in ("sync", "thread"):
+            raise ValueError("OumiVerlTool execution_mode must be 'sync' or 'thread'.")
         # Validate at construction: the tool name is spelled out in both the verl
         # tool config and the env config, so a mismatch would otherwise surface as
         # an unusable tool that fails every call of every rollout.
@@ -86,12 +93,20 @@ class OumiVerlTool(BaseTool):
         **kwargs: Any,
     ) -> tuple[ToolResponse, float, dict]:
         """Routes one tool call through this rollout's shared Oumi router."""
-        router = get_or_build_router(agent_data, _parent_router(self._env_config_path))
+        parent = _parent_router(self._env_config_path)
+        router = (
+            get_or_build_worker(agent_data, parent)
+            if self._execution_mode == "thread"
+            else get_or_build_router(agent_data, parent)
+        )
         # verl emits `None` for unset optional args; drop them so the executor
         # sees an absent key rather than an explicit null.
         args = {k: v for k, v in (parameters or {}).items() if v is not None}
         try:
-            result = router.route_batch([(self._tool_id, args)])[0]
+            if isinstance(router, RouterWorker):
+                result = await router.execute(self._tool_id, args)
+            else:
+                result = router.route_batch([(self._tool_id, args)])[0]
         except Exception as e:
             # A bad tool call is an observation the policy can recover from, not a
             # reason to kill the trajectory.
