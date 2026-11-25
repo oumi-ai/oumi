@@ -398,6 +398,48 @@ Rules:
 
 This is particularly useful with rubric-based reward functions (see {gh}`RaR datasets <src/oumi/datasets/grpo/rar_dataset.py>`) where a single function is reused across configs with different judge panels or scoring rules.
 
+#### Judge rewards
+
+A reward that calls an LLM judge per completion is latency-bound: each call pays a full round trip, and the engine's concurrency never helps because the calls arrive one at a time. Under `TRL_GRPO` the trainer already hands the reward function the whole batch, so the judge can score all of them in one call.
+
+| Function | Trainer | Judge calls per batch |
+|---|---|---|
+| `rar_medicine_trl` | `TRL_GRPO` | one |
+| `rar_medicine_verl` | `VERL_GRPO` | one per completion |
+
+Both return the same scores for the same inputs. `rar_medicine_trl` reads the question from the `prompts` column and the reference answer from `metadata["reference_answer"]`, which is where the `rar-medicine` dataset puts them. A top-level `reference_answer` column also works, but one of the two must be present: the reward raises rather than silently judging against an empty question or answer.
+
+`rar_medicine_trl` uses `BaseJudge.judge_partial()` rather than `judge()`, so a row whose inference fails does not take the rest of the group with it. The successful rows keep their scores and only the failed rows are resubmitted. With `judge()`, one failed row would raise for the whole batch and every completion in the group would score 0, which leaves GRPO with no learning signal for that step.
+
+Batching only pays off if the judge is allowed to fan out. `RemoteParams.num_workers` defaults to `1`, so set it in the judge config; the shipped `configs/examples/grpo_verl_medqa/judge.yaml` sets it to 16. Raising it is what turns judge latency into throughput — calling `judge()` in a loop instead does not help, because each call still sends one row.
+
+```yaml
+training:
+  trainer_type: "TRL_GRPO"
+  reward_functions: ["rar_medicine_trl"]
+  reward_function_kwargs:
+    rar_medicine_trl:
+      judge_config_path: "configs/examples/grpo_verl_medqa/judge.yaml"
+
+data:
+  train:
+    datasets:
+      # The dataset supplies `prompt` and `metadata["reference_answer"]`.
+      # `rar-medicine` is the registry name; the Hub repo it loads defaults to
+      # `anisha2102/RaR-Medicine`, which `dataset_name_override` makes explicit.
+      - dataset_name: "rar-medicine"
+        dataset_kwargs:
+          dataset_name_override: "anisha2102/RaR-Medicine"
+        split: "train"
+```
+
+```yaml
+# configs/examples/grpo_verl_medqa/judge.yaml
+inference_config:
+  remote_params:
+    num_workers: 16  # default is 1, which sends batched rows one at a time
+```
+
 ### Configuration
 
 #### TRL_GRPO
