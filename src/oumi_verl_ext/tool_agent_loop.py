@@ -36,6 +36,7 @@ from oumi_verl_ext.tool_episode import (
     call_problems,
     judge_transcript,
 )
+from oumi_verl_ext.tool_schemas import with_full_schemas
 
 
 class OumiToolAgentLoop(ToolAgentLoop):
@@ -44,6 +45,13 @@ class OumiToolAgentLoop(ToolAgentLoop):
     It also counts the calls verl skips without a metric: malformed and dropped.
     verl builds one loop per trajectory, so the instance state is per trajectory.
     """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Shows the model and the judge the tool config file's full tool schemas."""
+        super().__init__(*args, **kwargs)
+        self.tool_schemas = with_full_schemas(
+            self.tool_schemas, self.rollout_config.multi_turn.get("tool_config_path")
+        )
 
     async def run(self, sampling_params: dict[str, Any], **kwargs) -> AgentLoopOutput:
         """Runs verl's episode, then adds the judge's transcript, tools and counts."""
