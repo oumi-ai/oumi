@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+import transformers
 
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
@@ -211,3 +212,10 @@ def test_find_model_type_propagates_unreadable_configs(model_name):
     """
     with pytest.raises(OSError):
         find_model_type_using_model_name(model_name, False)
+
+
+def test_inkling2_loop_loads_as_image_text_to_text():
+    """Inkling 2's composite config has no AutoModelForCausalLM mapping."""
+    info = get_all_models_map()["inkling2_loop"]
+    assert info.model_class is transformers.AutoModelForImageTextToText
+    assert info.config.chat_template == ""
