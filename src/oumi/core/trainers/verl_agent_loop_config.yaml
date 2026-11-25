@@ -1,0 +1,7 @@
+# Agent loops Oumi registers with verl, loaded via
+# `actor_rollout_ref.rollout.agent.agent_loop_config_path`.
+#
+# verl reads this as a list of Hydra instantiation configs, keyed by `name`:
+# https://hydra.cc/docs/advanced/instantiate_objects/overview/
+- name: oumi_single_turn_agent
+  _target_: oumi.core.trainers.verl_agent_loops.ToolAwareSingleTurnAgentLoop
