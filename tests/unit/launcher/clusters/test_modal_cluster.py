@@ -150,3 +150,17 @@ def test_tunnel_url_resolves_through_the_client_by_sandbox_id():
         cluster.tunnel_url("sb-deadbeef", 8000) == "https://sb-deadbeef-8000.modal.host"
     )
     client.tunnel_url.assert_called_once_with("sb-deadbeef", 8000)
+
+
+def test_allocate_and_start_job_go_through_the_client():
+    client = MagicMock(spec=ModalClient)
+    client.launch_idle.return_value = _status("sb-deadbeef")
+    client.start_job.return_value = _status("sb-deadbeef")
+    cluster = ModalCluster("cluster-foo", client)
+    job = JobConfig(resources=JobResources(cloud="modal"), run="./run.sh")
+    assert cluster.allocate(job, timeout=60) == _status("sb-deadbeef")
+    client.launch_idle.assert_called_once_with(
+        job, cluster_name="cluster-foo", timeout=60
+    )
+    assert cluster.start_job("sb-deadbeef", job) == _status("sb-deadbeef")
+    client.start_job.assert_called_once_with("sb-deadbeef", job)

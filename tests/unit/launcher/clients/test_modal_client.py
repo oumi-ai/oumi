@@ -344,3 +344,71 @@ def test_tunnel_url_raises_when_the_port_was_not_exposed(fake_modal):
     ):
         with pytest.raises(ValueError, match="8000"):
             ModalClient().tunnel_url("sb-deadbeef", 8000)
+
+
+def test_launch_idle_runs_setup_then_waits_for_a_job(fake_modal):
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        status = ModalClient().launch_idle(_job(run="./run.sh"), cluster_name="c")
+    assert status.id == "sb-deadbeef"
+    assert status.cluster == "c"
+    args, _ = fake_modal.Sandbox.create.call_args
+    assert args[2] == (
+        "set -e\npip install -e .\n"
+        "while [ ! -f /tmp/oumi_job.sh ]; do sleep 1; done\n"
+        'exec /bin/bash -lc "$(cat /tmp/oumi_job.sh)"'
+    )
+    fake_modal.Secret.from_dict.assert_called_once_with({"HF_TOKEN": "redacted"})
+
+
+def test_launch_idle_raises_when_sandbox_creation_fails(fake_modal):
+    fake_modal.Sandbox.create.side_effect = RuntimeError("no capacity")
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        with pytest.raises(RuntimeError, match="no capacity"):
+            ModalClient().launch_idle(_job(), cluster_name="c")
+
+
+def test_start_job_writes_the_job_script_into_the_sandbox(fake_modal):
+    sandbox = MagicMock()
+    sandbox.poll.return_value = None
+    sandbox.exec.return_value.wait.return_value = 0
+    fake_modal.Sandbox.from_id.return_value = sandbox
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        status = ModalClient().start_job(
+            "sb-id", _job(envs={"KEY": "a b"}, setup="sudo apt-get update")
+        )
+    assert status.state == JobState.RUNNING
+    args, kwargs = sandbox.exec.call_args
+    assert args[3] == "/tmp/oumi_job.sh"
+    assert args[4] == "export KEY='a b'\nset -e\napt-get update\n./run.sh"
+    assert kwargs == {"timeout": 60}
+
+
+def test_start_job_raises_when_sandbox_has_ended(fake_modal):
+    sandbox = MagicMock()
+    sandbox.poll.return_value = 0
+    fake_modal.Sandbox.from_id.return_value = sandbox
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        with pytest.raises(RuntimeError, match="has ended"):
+            ModalClient().start_job("sb-id", _job())
+    sandbox.exec.assert_not_called()
+
+
+def test_start_job_raises_when_writing_the_script_fails(fake_modal):
+    sandbox = MagicMock()
+    sandbox.poll.return_value = None
+    sandbox.exec.return_value.wait.return_value = 1
+    sandbox.exec.return_value.stderr.read.return_value = "disk full"
+    fake_modal.Sandbox.from_id.return_value = sandbox
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        with pytest.raises(RuntimeError, match="disk full"):
+            ModalClient().start_job("sb-id", _job())

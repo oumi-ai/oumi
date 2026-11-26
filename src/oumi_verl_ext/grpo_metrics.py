@@ -15,10 +15,13 @@
 """oumi's GRPO metrics for verl 0.9.1's ``PPOTrainer._compute_metrics``."""
 
 import logging
+from collections.abc import Mapping
 from types import ModuleType
 from typing import Any
 
 import numpy as np
+
+from oumi_verl_ext.tool_episode import DROPPED_CALLS_KEY, MALFORMED_CALLS_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,19 @@ def compute_grpo_metrics(
     }
 
 
+def compute_tool_call_metrics(
+    extra_fields: list[Mapping[str, Any]],
+) -> dict[str, float]:
+    """Averages oumi's tool loop counts over the trajectories that carry them."""
+    rows = [fields for fields in extra_fields if MALFORMED_CALLS_KEY in fields]
+    if not rows:
+        return {}
+    return {
+        f"oumi/{key.removeprefix('oumi_')}/mean": float(np.mean([r[key] for r in rows]))
+        for key in (MALFORMED_CALLS_KEY, DROPPED_CALLS_KEY)
+    }
+
+
 def patch_compute_metrics(trainer_base: ModuleType) -> None:
     """Makes ``PPOTrainer._compute_metrics`` also log oumi's GRPO metrics.
 
@@ -59,6 +75,12 @@ def patch_compute_metrics(trainer_base: ModuleType) -> None:
             metrics.update(_step_metrics(trainer_base.tq, self.config, batch))
         except Exception:
             logger.warning("Skipped oumi's GRPO metrics for this step.", exc_info=True)
+        try:
+            metrics.update(_tool_call_step_metrics(trainer_base.tq, batch))
+        except Exception:
+            logger.warning(
+                "Skipped oumi's tool-call metrics for this step.", exc_info=True
+            )
 
     trainer_base.PPOTrainer._compute_metrics = compute_metrics
 
@@ -97,3 +119,17 @@ def _step_metrics(tq: Any, config: Any, batch: Any) -> dict[str, float]:
         response_lengths=lengths,
         max_response_length=config.actor_rollout_ref.rollout.response_length,
     )
+
+
+def _tool_call_step_metrics(tq: Any, batch: Any) -> dict[str, float]:
+    keys = [
+        key
+        for key, tag in zip(batch.keys, batch.tags, strict=True)
+        if not tag.get("is_padding", False)
+    ]
+    data = tq.kv_batch_get(
+        keys=_last_output_per_session(keys),
+        partition_id=batch.partition_id,
+        select_fields=["extra_fields"],
+    )
+    return compute_tool_call_metrics(data["extra_fields"].tolist())

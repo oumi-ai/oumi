@@ -15,6 +15,7 @@ from oumi.core.configs import (
 )
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.verl_grpo.data import conversation_to_verl_row, write_verl_parquet
+from oumi_verl_ext.tool_episode import TOOL_AGENT_LOOP_NAME
 
 
 def _row(conversation: Conversation) -> dict:
@@ -92,6 +93,27 @@ def test_tool_agent_row():
     assert row["reward_model"]["ground_truth"] == "SELECT count(*) FROM t"
     assert row["extra_info"]["need_tools_kwargs"] is True
     assert row["extra_info"]["tools_kwargs"] == tools_kwargs
+
+
+def test_multi_turn_routes_rows_to_the_tool_loop_unless_they_name_tool_agent():
+    plain = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Pick one."),
+            Message(role=Role.ASSISTANT, content="A"),
+        ]
+    )
+
+    def agent(conversation: Conversation) -> str:
+        return conversation_to_verl_row(
+            conversation.to_json(),
+            index=0,
+            data_source="ds",
+            split="train",
+            multi_turn=True,
+        )["agent_name"]
+
+    assert agent(plain) == TOOL_AGENT_LOOP_NAME
+    assert agent(_tool_conversation()) == "tool_agent"
 
 
 _IMAGE = ContentItem(type=Type.IMAGE_BINARY, binary=b"img")
