@@ -317,3 +317,39 @@ def test_extract_json_no_json():
 def test_extract_json_any_type():
     assert extract_json("[1, 2]", expected_type=None) == [1, 2]
     assert extract_json('Result: {"a": 1}', expected_type=None) == {"a": 1}
+
+
+def test_extract_json_any_type_prefers_outermost_structure():
+    # A dict that contains a list must be returned whole, not as its inner list.
+    assert extract_json('Result: {"a": [1, 2]}', expected_type=None) == {"a": [1, 2]}
+    # A list that contains dicts must be returned whole, not as its first dict.
+    assert extract_json('Result: [{"a": 1}, {"b": 2}]', expected_type=None) == [
+        {"a": 1},
+        {"b": 2},
+    ]
+
+
+def test_extract_json_any_type_ignores_stray_brackets_in_trailing_prose():
+    assert extract_json('Result: [{"a": 1}] (see [1])', expected_type=None) == [
+        {"a": 1}
+    ]
+    assert extract_json('Result: {"a": [1]} thanks :}', expected_type=None) == {
+        "a": [1]
+    }
+
+
+def test_extract_json_typed_ignores_stray_brackets_in_trailing_prose():
+    assert extract_json('Result: [{"a": 1}] (see [1])', expected_type=list) == [
+        {"a": 1}
+    ]
+
+
+def test_extract_json_dict_does_not_unwrap_list_payload():
+    assert extract_json('Result: [{"a": 1}, {"b": 2}]', expected_type=dict) is None
+    assert extract_json('[{"a": 1}, {"b": 2}, ', expected_type=dict) is None
+
+
+def test_extract_json_leading_bracketed_token_is_the_value():
+    text = 'According to [1], the JSON is {"a": [1, 2]}'
+    assert extract_json(text, expected_type=None) == [1]
+    assert extract_json(text, expected_type=dict) == {"a": [1, 2]}

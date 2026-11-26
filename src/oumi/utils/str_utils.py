@@ -131,14 +131,12 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
     Extraction strategy (first match wins):
 
     1. Code-fenced JSON (```json ... ``` or ``` ... ```).
-    2. Raw delimiters — takes the span from the *first* opening delimiter
-       (``[`` or ``{``) to the *last* matching closing delimiter (``]`` or
-       ``}``), then attempts ``json.loads`` on that slice.
+    2. Raw delimiters — decodes the first complete JSON value that starts at
+       the *first* opening delimiter (``[`` or ``{``), ignoring trailing prose.
+    3. Fallback — takes the span from the first opening delimiter to the *last*
+       matching closing delimiter and attempts ``json.loads`` on that slice.
 
-    Because step 2 uses the outermost delimiter span, the input text should
-    contain at most **one** JSON structure of the expected type. If multiple
-    JSON blocks or stray brackets appear in the surrounding prose, parsing
-    may fail or return an unexpected result.
+    If the text contains multiple JSON blocks, the first one wins.
 
     Args:
         text: The text to extract JSON from (e.g. LLM output that wraps
@@ -170,10 +168,33 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
     if expected_type in (dict, None):
         delimiters.append(("{", "}"))
 
+    # When either type is accepted, try the structure that opens first so a dict
+    # containing a list (e.g. `{"a": [1]}`) is not mistaken for the inner list.
+    delimiters.sort(key=lambda pair: (text.find(pair[0]) == -1, text.find(pair[0])))
+
+    # Position of the leftmost JSON opener of *any* kind. ``raw_decode`` is only
+    # attempted from this position so that a value nested inside a wrapping
+    # structure of a different type (e.g. a ``{...}`` record inside a truncated
+    # ``[...]`` list while ``expected_type=dict``) is never returned on its own.
+    opener_positions = [i for i in (text.find("["), text.find("{")) if i != -1]
+    leading_start = min(opener_positions, default=-1)
+
     for open_char, close_char in delimiters:
         start = text.find(open_char)
+        if start == -1:
+            continue
+        # Decode the first complete value starting at the leading opener; unlike
+        # the first-to-last span below, this tolerates stray brackets in trailing
+        # prose.
+        if start == leading_start:
+            try:
+                result, _ = json.JSONDecoder().raw_decode(text, start)
+                if _matches_expected(result):
+                    return result
+            except json.JSONDecodeError:
+                pass
         end = text.rfind(close_char)
-        if start != -1 and end > start:
+        if end > start:
             try:
                 result = json.loads(text[start : end + 1])
                 if _matches_expected(result):
