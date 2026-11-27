@@ -4972,10 +4972,15 @@ def test_infer_still_writes_scratch():
 @pytest.mark.asyncio
 async def test_generate_cancellation_reaches_the_request():
     request_started = asyncio.Event()
+    request_cancelled = asyncio.Event()
 
     async def _never_responds(url, **kwargs):
         request_started.set()
-        await asyncio.sleep(60)
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            request_cancelled.set()
+            raise
 
     with aioresponses() as m:
         m.post(_TARGET_SERVER, callback=_never_responds)
@@ -4990,6 +4995,45 @@ async def test_generate_cancellation_reaches_the_request():
         # The retry loop catches Exception, which must not swallow CancelledError.
         # A swallowed one would leave the task finished with a result instead.
         assert task.cancelled()
+        # The request itself was cancelled, not left running in its own task.
+        assert request_cancelled.is_set()
+
+
+@pytest.mark.asyncio
+async def test_generate_failure_cancels_the_other_requests():
+    other_started = asyncio.Event()
+    other_cancelled = asyncio.Event()
+
+    async def _respond(url, **kwargs):
+        if kwargs["json"]["messages"][0]["content"] == "fail":
+            return CallbackResult(
+                status=400, payload={"error": {"message": "bad request"}}
+            )
+        other_started.set()
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            other_cancelled.set()
+            raise
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=_respond, repeat=True)
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER, num_workers=2, use_adaptive_concurrency=False
+            ),
+        )
+        slow = Conversation(messages=[Message(role=Role.USER, content="slow")])
+        failing = Conversation(messages=[Message(role=Role.USER, content="fail")])
+        task = asyncio.create_task(engine.generate([slow, failing]))
+        await asyncio.wait_for(other_started.wait(), timeout=5)
+        with pytest.raises(APIStatusError):
+            await asyncio.wait_for(task, timeout=5)
+
+        # The failure ended generate(); the slow request was cancelled with it.
+        assert other_cancelled.is_set()
 
 
 @pytest.mark.asyncio
