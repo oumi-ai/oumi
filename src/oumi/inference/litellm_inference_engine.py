@@ -302,12 +302,13 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
                     )
                     await asyncio.sleep(delay)
 
-                # Re-pace every attempt through the rate limiter so a burst of
-                # retries waking together still respects the RPM/TPM window.
-                if self._rate_limiter is not None:
-                    await self._rate_limiter.wait_if_needed()
-
                 async with semaphore_or_controller:
+                    # Re-pace every attempt through the rate limiter so a burst of
+                    # retries waking together still respects the RPM/TPM window.
+                    # The limiter counts the request when it lets it through, so
+                    # wait for it only once a worker is free to send it.
+                    if self._rate_limiter is not None:
+                        await self._rate_limiter.wait_if_needed()
                     response = await asyncio.to_thread(
                         self._call_litellm_completion,
                         api_input,

@@ -186,3 +186,46 @@ async def test_wait_if_needed_sleeps_correct_duration(mock_time, mock_asyncio_sl
 
     await limiter.wait_if_needed()
     mock_asyncio_sleep.assert_called_once_with(pytest.approx(30.0))
+
+
+# RateLimiter.wait_if_needed: counts each request when it lets it through
+@pytest.mark.asyncio
+async def test_wait_if_needed_counts_requests_before_their_responses(
+    mock_time, mock_asyncio_sleep
+):
+    now = 1000.0
+    mock_time.time.side_effect = lambda: now
+
+    async def advance(seconds: float) -> None:
+        nonlocal now
+        now += seconds
+
+    mock_asyncio_sleep.side_effect = advance
+    limiter = RateLimiter(
+        UsageTracker(window_size_seconds=_WINDOW), requests_per_minute=2
+    )
+
+    # Two requests go out and no response has been recorded yet.
+    await limiter.wait_if_needed()
+    await limiter.wait_if_needed()
+    mock_asyncio_sleep.assert_not_called()
+
+    # The third waits until the first leaves the window.
+    await limiter.wait_if_needed()
+    mock_asyncio_sleep.assert_called_once_with(pytest.approx(_WINDOW))
+
+
+@pytest.mark.asyncio
+async def test_record_usage_does_not_count_the_request_again(mock_time):
+    mock_time.time.return_value = 1000.0
+    tracker = UsageTracker(window_size_seconds=_WINDOW)
+    limiter = RateLimiter(tracker, requests_per_minute=2, input_tokens_per_minute=100)
+
+    await limiter.wait_if_needed()
+    await limiter.record_usage(input_tokens=40, output_tokens=5)
+
+    stats = await tracker.get_stats()
+    assert stats.requests == 1
+    assert stats.input_tokens == 40
+    # One request of two used: no wait for RPM, and 40 of 100 input tokens.
+    assert limiter._compute_wait_seconds(tracker._history, 1000.0) == 0.0
